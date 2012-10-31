@@ -501,38 +501,80 @@ FRESULT dir_next (	/* FR_OK:Succeeded, FR_NO_FILE:End of table */
 
 
 
+///*OLD VERSION FOR LOW RAM CONTROLLERS (Attiny____)*/
+///*-----------------------------------------------------------------------*/
+///* Directory handling - Find an object in the directory                  */
+///*-----------------------------------------------------------------------*/
+//
+//static
+//FRESULT dir_find (
+//	DIR *dj,		/* Pointer to the directory object linked to the file name */
+//	BYTE *dir		/* 32-byte working buffer */
+//)
+//{
+//	FRESULT res;
+//	BYTE c;
+//
+//
+//	res = dir_rewind(dj);			/* Rewind directory object */
+//	if (res != FR_OK) return res;
+//
+//	do {
+//		res = disk_readp(dir, dj->sect, (WORD)((dj->index % 16) * 32), 32)	/* Read an entry */
+//			? FR_DISK_ERR : FR_OK;
+//		if (res != FR_OK) break;
+//		c = dir[DIR_Name];	/* First character */
+//		if (c == 0) { res = FR_NO_FILE; break; }	/* Reached to end of table */
+//		if (!(dir[DIR_Attr] & AM_VOL) && !mem_cmp(dir, dj->fn, 11)) /* Is it a valid entry? */
+//			break;
+//		res = dir_next(dj);					/* Next entry */
+//	} while (res == FR_OK);
+//
+//	return res;
+//}
+///*END*/
+
 
 /*-----------------------------------------------------------------------*/
 /* Directory handling - Find an object in the directory                  */
 /*-----------------------------------------------------------------------*/
 
+BYTE DirBuffer[256] ;
+
 static
 FRESULT dir_find (
-	DIR *dj,		/* Pointer to the directory object linked to the file name */
-	BYTE *dir		/* 32-byte working buffer */
+   DIR *dj,      /* Pointer to the directory object linked to the file name */
+   BYTE *dir      /* 32-byte working buffer */
 )
 {
-	FRESULT res;
-	BYTE c;
+   FRESULT res;
+   BYTE c;
 
 
-	res = dir_rewind(dj);			/* Rewind directory object */
-	if (res != FR_OK) return res;
+   res = dir_rewind(dj);         /* Rewind directory object */
+   if (res != FR_OK) return res;
 
-	do {
-		res = disk_readp(dir, dj->sect, (WORD)((dj->index % 16) * 32), 32)	/* Read an entry */
-			? FR_DISK_ERR : FR_OK;
-		if (res != FR_OK) break;
-		c = dir[DIR_Name];	/* First character */
-		if (c == 0) { res = FR_NO_FILE; break; }	/* Reached to end of table */
-		if (!(dir[DIR_Attr] & AM_VOL) && !mem_cmp(dir, dj->fn, 11)) /* Is it a valid entry? */
-			break;
-		res = dir_next(dj);					/* Next entry */
-	} while (res == FR_OK);
+   do {
+      if ( (dj->index & 7) == 0 )
+      { // Need to read data
+         res = disk_readp( DirBuffer, dj->sect, (WORD)((dj->index & 8) * 32), 256)   /* Read half a sector */
+            ? FR_DISK_ERR : FR_OK;
+      }
+      else
+      {
+         res = FR_OK ;
+      }
+      if (res != FR_OK) break;
+      memcpy( dir, &DirBuffer[((dj->index % 8) * 32)], 32 ) ;
+      c = dir[DIR_Name];   /* First character */
+      if (c == 0) { res = FR_NO_FILE; break; }   /* Reached to end of table */
+      if (!(dir[DIR_Attr] & AM_VOL) && !mem_cmp(dir, dj->fn, 11)) /* Is it a valid entry? */
+         break;
+      res = dir_next(dj);               /* Next entry */
+   } while (res == FR_OK);
 
-	return res;
+   return res;
 }
-
 
 
 
