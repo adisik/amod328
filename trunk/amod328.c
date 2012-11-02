@@ -86,6 +86,34 @@ void led_sign (
 	delay_ms(1000);
 }
 
+void setBeeperVolume( uint8_t volume )
+{
+   volume >>= 1 ;      // gives 3, 2, 1 and 0
+   PORTC &= 0xCF ;      // bits 5 and 4 = 0
+   if ( volume == 3 )
+   {
+      DDRC &= 0xCF ;      // Both inputs
+      DIDR0 = 0x30 ;      // Analog
+   }
+   else if ( volume == 2 )
+   {
+      DDRC &= 0xDF ;      // One input
+      DDRC |= 0x20 ;      // One output
+      DIDR0 = 0x20 ;      // Analog
+   }
+   else if ( volume == 1 )
+   {
+      DDRC &= 0xEF ;      // One input
+      DDRC |= 0x10 ;      // One output
+      DIDR0 = 0x10 ;      // Analog
+   }
+   else   // volume == 0
+   {
+      DDRC |= 0x30 ;      // Both output
+      DIDR0 = 0 ;            // Both digital
+   }
+}
+
 static
 BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 {
@@ -100,6 +128,7 @@ BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 			//VOLUME
 			cbi(GPIOR0,5);
 			Volume = ( ( Command & 7 ) + 1 ) << 5 ;
+	        setBeeperVolume( Command & 7 ) ;
 			return 0;
 		}
 		cbi(GPIOR0,5);
