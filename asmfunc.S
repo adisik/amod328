@@ -56,7 +56,6 @@ Wait_TransmitReceive: ; Wait for transmission complete
 	in   r24, _SFR_IO_ADDR(SPSR)
 	sbrs r24, 7
 	rjmp Wait_TransmitReceive
-	
 	in   r24, _SFR_IO_ADDR(SPDR)
 
 	ret
@@ -102,21 +101,71 @@ fwd_blk_part:
 	sbc	r19, r21		;/
 	; Skip leading data bytes
 //	ldi	r24, _BV(2)		;SCK(PA2)
-	ldi	r24, _BV(5)		;SCK(PB5)
+;	ldi	r24, _BV(5)		;SCK(PB5)
+
 1:	sbiw	ZL, 1			;Skip leading data...
-	brcs	2f			;
-	rcall rcv_spi; 	;Discard a byte on USI
-	rjmp	1b			;
+	brcs	2f			; None
+
+	sbiw	ZL, 1			;Skip leading data...
+	brcs	3f			; One
+
+	ldi r25, 0xFF
+	out  _SFR_IO_ADDR(SPDR),r25
+wtr1: ; Wait for transmission complete
+	in   r24, _SFR_IO_ADDR(SPSR)
+	sbrs r24, 7
+	rjmp wtr1
+	in   r24, _SFR_IO_ADDR(SPDR)
+	out  _SFR_IO_ADDR(SPDR),r25		; Start next SPI access
+	sbiw	ZL, 1			;Skip leading data...
+	brcs	wtr3		
+	rjmp	wtr1			;
+
+3:
+	ldi r24, 0xFF
+	out  _SFR_IO_ADDR(SPDR),r24
+wtr3: ; Wait for transmission complete
+	in   r24, _SFR_IO_ADDR(SPSR)
+	sbrs r24, 7
+	rjmp wtr3
+	in   r24, _SFR_IO_ADDR(SPDR)
+
 2:	sbiw	XL, 0			;Destination?
 	breq	fb_wave
 
 fb_mem:	; Store intermediate data bytes to the memory
-	rcall	rcv_spi			;do
+;	rcall	rcv_spi			;do
+
+	subi	r20, 1			;while (--r21:r20)
+	sbci	r21, 0			;
+	breq	mem_one			;
+	
+	ldi r25, 0xFF
+	out  _SFR_IO_ADDR(SPDR),r25
+wtr4: ; Wait for transmission complete
+	in   r24, _SFR_IO_ADDR(SPSR)
+	sbrs r24, 7
+	rjmp wtr4
+	in   r24, _SFR_IO_ADDR(SPDR)
+	out  _SFR_IO_ADDR(SPDR),r25		; Start next SPI access
 	st	X+, r24			; *X++ = rcv_spi()
 	subi	r20, 1			;while (--r21:r20)
 	sbci	r21, 0			;
-	brne	fb_mem			;/
+	breq	wtr2				;
+	rjmp wtr4
+	
+mem_one:
+	LDI R24, 0XFF
+	out  _SFR_IO_ADDR(SPDR),r24
+wtr2: ; Wait for transmission complete
+	in   r24, _SFR_IO_ADDR(SPSR)
+	sbrs r24, 7
+	rjmp wtr2
+	in   r24, _SFR_IO_ADDR(SPDR)
+
+	st	X+, r24			; *X++ = rcv_spi()
 	rjmp	fb_exit
+
 
 fb_wave: ; Forward intermediate data bytes to the wave FIFO
 	sbic	_FLAGS, 7		;if (16bit data) R21:R20 /= 2;
@@ -159,73 +208,47 @@ fb_wave: ; Forward intermediate data bytes to the wave FIFO
 	ror	ZH			;
 	ror	ZL			;/
 
-;--version with volume control
 8:
-   push   r16
-   lds r16,Volume
-   and r16,r16
-   breq   9f         ; Volume is 0 => full
+	push	r16
+	lds r16,Volume
+	and r16,r16
+	breq	9f			; Volume is 0 => full
 
-   subi   ZH, 0x80      ;
-   push   r17
-   mul ZL,r16
-   mov r25,r1
-   mov   r17,ZH
-   mulsu r17,r16
-   movw   ZL,r0
-   eor   r1,r1
-   add   ZL,r25
-   adc   ZH,r1
-   subi   ZH, 0x80      ;
-   pop   r17
-9:   
-   pop   r16
-   st   X+, ZL         ;Store -/Rch/LSB data
-   st   X+, ZH         ;Store +/Lch/MSB data
-   cli            ;
-   lds   r24, FifoCt      ;
-   subi   r24, -2         ;
-   sts   FifoCt, r24      ;
-   sei            ;
-   subi   r22, -2         ;/
+	subi	ZH, 0x80		;
+	push	r17
+	mul ZL,r16
+	mov r25,r1
+	mov	r17,ZH
+	mulsu r17,r16
+	movw	ZL,r0
+	eor	r1,r1
+	add	ZL,r25
+	adc	ZH,r1
+	subi	ZH, 0x80		;
+	pop	r17
+9:	
+	pop	r16
+	st	X+, ZL			;Store -/Rch/LSB data
+	st	X+, ZH			;Store +/Lch/MSB data
+	cli				;
+	lds	r24, FifoCt		;
+	subi	r24, -2			;
+	sts	FifoCt, r24		;
+	sei				;
+	subi	r22, -2			;/
 
-   subi   r20, lo8(1)      ;while(--R21:R20)
-   sbci   r21, hi8(1)      ;
-   brne   3b         ;/
-   sts   FifoWi, r22      ;Save FIFO write index
+	subi	r20, lo8(1)		;while(--R21:R20)
+	sbci	r21, hi8(1)		;
+	brne	3b			;/
+	sts	FifoWi, r22		;Save FIFO write index
 
 fb_exit:
-//   ldi   r24, _BV(5)      ;SCK(PB5)
-10:   rcall rcv_spi;
-   subi   r18, lo8(1)      ;Repeat r19:r18 times
-   sbci   r19, hi8(1)      ;
-   brne   10b         ;/
-;--end
-
-
-;--version without volume control
-;8:	st	X+, ZL			;Store -/Rch/LSB data
-;	st	X+, ZH			;Store +/Lch/MSB data
-;	cli				;
-;	lds	r24, FifoCt		;
-;	subi	r24, -2			;
-;	sts	FifoCt, r24		;
-;	sei				;
-;	subi	r22, -2			;/
-;
-;	subi	r20, lo8(1)		;while(--R21:R20)
-;	sbci	r21, hi8(1)		;
-;	brne	3b			;/
-;	sts	FifoWi, r22		;Save FIFO write index
-;
-;fb_exit:
-;//	ldi	r24, _BV(2)		;SCK(PA2)
-;	ldi	r24, _BV(5)		;SCK(PB5)
-;9:	rcall rcv_spi;
-;	subi	r18, lo8(1)		;Repeat r19:r18 times
-;	sbci	r19, hi8(1)		;
-;	brne	9b			;/
-;--end
+//	ldi	r24, _BV(2)		;SCK(PA2)
+//	ldi	r24, _BV(5)		;SCK(PB5)
+10:	rcall rcv_spi;
+	subi	r18, lo8(1)		;Repeat r19:r18 times
+	sbci	r19, hi8(1)		;
+	brne	10b			;/
 
 	ret
 .endfunc
@@ -371,17 +394,17 @@ _exit_INT0_vect:
 	out _FLAGS, r24
 
 ; Debug starts
-	in r24, _SFR_IO_ADDR(PORTC) 
-	BST r23, 3
-	BLD r24, 2
-	BST r23, 4
-	BLD r24, 3
-	andi r24, 0b11001111
-	sbic	_FLAGS, 0	;
-	ori r24, 0b00010000
-	sbic	_FLAGS, 1	;
-	ori r24, 0b00100000
-	out _SFR_IO_ADDR(PORTC), r24 
+;	in r24, _SFR_IO_ADDR(PORTC) 
+;	BST r23, 3
+;	BLD r24, 2
+;	BST r23, 4
+;	BLD r24, 3
+;	andi r24, 0b11001111
+;	sbic	_FLAGS, 0	;
+;	ori r24, 0b00010000
+;	sbic	_FLAGS, 1	;
+;	ori r24, 0b00100000
+;	out _SFR_IO_ADDR(PORTC), r24 
 ; Debug ends
 
 	pop r24
