@@ -9645,12 +9645,12 @@ In this library the device names are the same as the pin names of the symbols, t
 <part name="R6" library="resistor" deviceset="R-US_" device="R1206" value="150"/>
 <part name="R7" library="resistor" deviceset="R-US_" device="R1206" value="1k"/>
 <part name="R8" library="resistor" deviceset="R-US_" device="R1206" value="560k"/>
-<part name="R9" library="resistor" deviceset="R-US_" device="R1206" value="100k"/>
-<part name="R10" library="resistor" deviceset="R-US_" device="R1206" value="33k"/>
+<part name="R9" library="resistor" deviceset="R-US_" device="R1206" value="33k"/>
+<part name="R10" library="resistor" deviceset="R-US_" device="R1206" value="4k7"/>
 <part name="R11" library="resistor" deviceset="R-US_" device="R1206" value="10"/>
 <part name="R12" library="resistor" deviceset="R-US_" device="R1206" value="470k"/>
 <part name="R13" library="resistor" deviceset="R-US_" device="R1206" value="100k"/>
-<part name="R14" library="resistor" deviceset="R-US_" device="R1206" value="330"/>
+<part name="R14" library="resistor" deviceset="R-US_" device="R1206" value="1k"/>
 <part name="R15" library="resistor" deviceset="R-US_" device="R1206" value="2k2"/>
 <part name="R16" library="resistor" deviceset="R-US_" device="R1206" value="1k"/>
 <part name="R17" library="resistor" deviceset="R-US_" device="R1206" value="22k"/>
