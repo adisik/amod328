@@ -345,7 +345,7 @@ DWORD load_header (void)	/* 2:I/O error, 4:Invalid file, >=1024:Ok(number of sam
 			f = LD_DWORD(Buff+4);					/* Check sampling freqency (8k-48k) */
 			if (f < 8000 || f > 48000) return 4;
 //			OCR0A = (BYTE)(16000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
-			OCR1A = (BYTE)(16000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
+			OCR1A = (BYTE)(12000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
 			break;
 
 		case FCC('d','a','t','a') :		/* 'data' chunk (start to play) */
