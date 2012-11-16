@@ -192,40 +192,73 @@ void ramp (		/* Ramp-up/down audio output (anti-pop feature) */
 #endif
 }
 
-static
-void audio_on (void)	/* Enable audio output functions */
-{
-	if (!TCCR1B) {
-		FifoCt = 0; FifoRi = 0; FifoWi = 0;		/* Reset audio FIFO */
-
-
-		TCCR0A = 0b10100011;	/* Start TC0 with OC0A/OC0B PWM enabled */
-		TCCR0B = 0b00000001;
-		ramp(1);				/* Ramp-up to center level */
-
-
-		TCCR1A = 0b00000000;	/* Enable TC`.ck = 2MHz as interval timer */
-		TCCR1B = 0b00001010;
-
-
-		TIMSK1 = _BV(OCIE1A);
-
-	}
+//static
+//void audio_on (void)	/* Enable audio output functions */
+//{
+//	if (!TCCR1B) {
+//		FifoCt = 0; FifoRi = 0; FifoWi = 0;		/* Reset audio FIFO */
+//
+//
+//		TCCR0A = 0b10100011;	/* Start TC0 with OC0A/OC0B PWM enabled */
+//		TCCR0B = 0b00000001;
+//		ramp(1);				/* Ramp-up to center level */
+//
+//
+//		TCCR1A = 0b00000000;	/* Enable TC`.ck = 2MHz as interval timer */
+//		TCCR1B = 0b00001010;
+//
+//
+//		TIMSK1 = _BV(OCIE1A);
+//
+//	}
 //	sei();
+//}
+
+void audio_on (void)   /* Enable audio output functions */
+{
+   if ( TCCR0A == 0 )
+   {
+      
+      TCCR0A = 0b10100011;   /* Start TC0 with OC0A/OC0B PWM enabled */
+      TCCR0B = 0b00000001;
+      ramp(1);            /* Ramp-up to center level */
+   }
+
+   if (!TCCR1B) {
+      FifoCt = 0; FifoRi = 0; FifoWi = 0;      /* Reset audio FIFO */
+      
+      TCCR1A = 0b00000000;   /* Enable TC`.ck = 2MHz as interval timer */
+      TCCR1B = 0b00001010;
+      
+      TIMSK1 = _BV(OCIE1A);
+
+   }
 }
 
 
+//static
+//void audio_off (void)	/* Disable audio output functions */
+//{
+//	if (TCCR1B) {
+//		TCCR1B = 0;				/* Stop audio timer */
+//		ramp(0);				/* Ramp-down to GND level */
+//		TCCR0A = 0;	TCCR0B = 0;	/* Stop PWM */
+//	}
+//	cli();
+//}
 
 static
-void audio_off (void)	/* Disable audio output functions */
+void audio_off (void)   /* Disable audio output functions */
 {
-	if (TCCR1B) {
-		TCCR1B = 0;				/* Stop audio timer */
-		ramp(0);				/* Ramp-down to GND level */
-		TCCR0A = 0;	TCCR0B = 0;	/* Stop PWM */
-	}
-//	cli();
+   OCR0A = 128 ;
+   OCR0B = 128 ;
+   
+   if (TCCR1B) {
+      TCCR1B = 0;            /* Stop audio timer */
+   }
 }
+
+
 
 
 #if 0
@@ -312,7 +345,7 @@ DWORD load_header (void)	/* 2:I/O error, 4:Invalid file, >=1024:Ok(number of sam
 			f = LD_DWORD(Buff+4);					/* Check sampling freqency (8k-48k) */
 			if (f < 8000 || f > 48000) return 4;
 //			OCR0A = (BYTE)(16000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
-			OCR1A = (BYTE)(12000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
+			OCR1A = (BYTE)(16000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
 			break;
 
 		case FCC('d','a','t','a') :		/* 'data' chunk (start to play) */
