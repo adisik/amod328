@@ -27,6 +27,7 @@
 
 void delay_ms (WORD);	/* Defined in asmfunc.S */
 void delay_us (WORD);	/* Defined in asmfunc.S */
+void pollBoot( void ) ;
 
 //EMPTY_INTERRUPT(PCINT_vect); //Пока пустой обработчик, позднее повесим
 
@@ -35,7 +36,6 @@ void delay_us (WORD);	/* Defined in asmfunc.S */
 /*---------------------------------------------------------*/
 
 volatile BYTE FifoRi, FifoWi, FifoCt;	/* FIFO controls */
-volatile BYTE Volume;	/* FIFO controls */
 volatile WORD Command;	/* Control commands */
 BYTE Buff[256];		/* Audio output FIFO */
 
@@ -48,6 +48,9 @@ FILINFO Fno;		/* File information */
 WORD rb;			/* Return value. Put this here to avoid avr-gcc's bug */
 
 uint8_t CommandTimeout ;
+uint8_t Volume ;
+
+uint8_t LastSerialRx ;
 
 /*---------------------------------------------------------*/
 /* Sub-routines                                            */
@@ -56,7 +59,7 @@ uint8_t CommandTimeout ;
 
 // C versions of assembler code for SPI.
 // These generate similar code, but may 'inline' in C functions
-uint8_t xrcv_spi()
+inline uint8_t xrcv_spi()
 {
 	SPDR = 0xFF ;
 	while(( SPSR & 0x80 ) == 0 )
@@ -71,6 +74,77 @@ uint8_t xxmit_spi( uint8_t byte )
 		;
 	return SPDR ;
 }
+
+int16_t mult( int16_t mx )
+{
+	return mx * Volume ;
+}
+
+//void c_fwd_blk_part( uint8_t *dest, uint16_t offset, uint16_t count)
+//{
+//	uint16_t x ;		//  Number of bytes to receive
+	
+//	x = 514 - offset - count ;
+//	while ( offset-- )
+//	{
+//		xrcv_spi() ;		
+//	}
+//	if ( dest )
+//	{ // memory
+//		do
+//		{
+//			*dest++ = xrcv_spi() ;
+//		} while( count-- ) ;
+//	}
+//	else
+//	{ // wave
+//		if ( GPIOR0 & 0x80 )
+//		{
+//			count >>= 1 ;	//if (16bit data) count /= 2;
+//		}
+//		if ( GPIOR0 & 0x40 )
+//		{
+//			count >>= 1 ;	//if (stereo data) count /= 2;
+//		}
+
+//		do
+//		{
+//			uint8_t x ;
+//			uint16_t y ;
+			
+//			dest = &Buff[FifoWi] ;
+//			while ( FifoCt == 252 )
+//				;
+		
+//			x = xrcv_spi() ;		 
+//			y &= 0xFF00 ;
+//			if ( GPIOR0 & 0x80 )
+//			{
+//				y |= x ;
+//				x = xrcv_spi() ;
+//				x -= 0x80 		 
+//			}
+//			y |= x << 8 ;
+//			if ( GPIOR0 & 0x40 )
+//			{
+				
+//			}
+//			*dest++ = y ;
+//			*dest++ = y >> 8 ;
+//			cli() ;
+//			FifoCt += 2 ;
+//			sei() ;
+//			FifoWi += 2 ;
+//		} while( --count ) ;
+
+//	}
+	
+//	while ( x-- )
+//	{
+//		xrcv_spi() ;		
+//	}
+//}
+
 
 static
 void led_sign (
@@ -88,31 +162,32 @@ void led_sign (
 
 void setBeeperVolume( uint8_t volume )
 {
-   volume >>= 1 ;      // gives 3, 2, 1 and 0
-   PORTC &= 0xCF ;      // bits 5 and 4 = 0
-   if ( volume == 3 )
-   {
-      DDRC &= 0xCF ;      // Both inputs
-      DIDR0 = 0x30 ;      // Analog
-   }
-   else if ( volume == 2 )
-   {
-      DDRC &= 0xDF ;      // One input
-      DDRC |= 0x20 ;      // One output
-      DIDR0 = 0x20 ;      // Analog
-   }
-   else if ( volume == 1 )
-   {
-      DDRC &= 0xEF ;      // One input
-      DDRC |= 0x10 ;      // One output
-      DIDR0 = 0x10 ;      // Analog
-   }
-   else   // volume == 0
-   {
-      DDRC |= 0x30 ;      // Both output
-      DIDR0 = 0 ;            // Both digital
-   }
+	volume >>= 1 ;		// gives 3, 2, 1 and 0
+	PORTC &= 0xCF ;		// bits 5 and 4 = 0
+	if ( volume == 3 )
+	{
+		DDRC &= 0xCF ;		// Both inputs
+		DIDR0 = 0x30 ;		// Analog
+	}
+	else if ( volume == 2 )
+	{
+		DDRC &= 0xDF ;		// One input
+		DDRC |= 0x20 ;		// One output
+		DIDR0 = 0x20 ;		// Analog
+	}
+	else if ( volume == 1 )
+	{
+		DDRC &= 0xEF ;		// One input
+		DDRC |= 0x10 ;		// One output
+		DIDR0 = 0x10 ;		// Analog
+	}
+	else	// volume == 0
+	{
+		DDRC |= 0x30 ;		// Both output
+		DIDR0 = 0 ;				// Both digital
+	}
 }
+
 
 static
 BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
@@ -128,14 +203,14 @@ BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 			//VOLUME
 			cbi(GPIOR0,5);
 			Volume = ( ( Command & 7 ) + 1 ) << 5 ;
-	        setBeeperVolume( Command & 7 ) ;
+			setBeeperVolume( Command & 7 ) ;
 			return 0;
 		}
 		cbi(GPIOR0,5);
-
 		return 1;
 	}
-	// No command received, check for timeout
+	// No command received, check for timeout, or bootloader request
+	pollBoot() ;
 	t = GPIOR0 & 0x1F ;		// a_clock and count bits
 	x = GpioCopy ;
 	if ( t == x )
@@ -143,6 +218,9 @@ BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 		if ( TIFR2 & (1 << TOV2) )
 		{ // 21mS passed
 			TIFR2 = (1 << TOV2) ;			// Clear timer 2 overflow flag
+				
+			// Debug test of serial Tx
+				
 			if ( ++CommandTimeout > 9)
 			{ // Around 200 mS with no input
 				// Abandon any received command (safely)
@@ -192,74 +270,43 @@ void ramp (		/* Ramp-up/down audio output (anti-pop feature) */
 #endif
 }
 
-//static
-//void audio_on (void)	/* Enable audio output functions */
-//{
-//	if (!TCCR1B) {
-//		FifoCt = 0; FifoRi = 0; FifoWi = 0;		/* Reset audio FIFO */
-//
-//
-//		TCCR0A = 0b10100011;	/* Start TC0 with OC0A/OC0B PWM enabled */
-//		TCCR0B = 0b00000001;
-//		ramp(1);				/* Ramp-up to center level */
-//
-//
-//		TCCR1A = 0b00000000;	/* Enable TC`.ck = 2MHz as interval timer */
-//		TCCR1B = 0b00001010;
-//
-//
-//		TIMSK1 = _BV(OCIE1A);
-//
-//	}
-//	sei();
-//}
-
-void audio_on (void)   /* Enable audio output functions */
+static
+void audio_on (void)	/* Enable audio output functions */
 {
-   if ( TCCR0A == 0 )
-   {
-      
-      TCCR0A = 0b10100011;   /* Start TC0 with OC0A/OC0B PWM enabled */
-      TCCR0B = 0b00000001;
-      ramp(1);            /* Ramp-up to center level */
-   }
+	if ( TCCR0A == 0 )
+	{
+		
+		TCCR0A = 0b10100011;	/* Start TC0 with OC0A/OC0B PWM enabled */                           
+		TCCR0B = 0b00000001;
+		ramp(1);				/* Ramp-up to center level */
+	}
 
-   if (!TCCR1B) {
-      FifoCt = 0; FifoRi = 0; FifoWi = 0;      /* Reset audio FIFO */
-      
-      TCCR1A = 0b00000000;   /* Enable TC`.ck = 2MHz as interval timer */
-      TCCR1B = 0b00001010;
-      
-      TIMSK1 = _BV(OCIE1A);
+	if (!TCCR1B) {
+		FifoCt = 0; FifoRi = 0; FifoWi = 0;		/* Reset audio FIFO */
+		
+		TCCR1A = 0b00000000;	/* Enable TC`.ck = 2MHz as interval timer */
+		TCCR1B = 0b00001010;
+		
+		TIMSK1 = _BV(OCIE1A);
 
-   }
+	}
+//	sei();
 }
 
-
-//static
-//void audio_off (void)	/* Disable audio output functions */
-//{
-//	if (TCCR1B) {
-//		TCCR1B = 0;				/* Stop audio timer */
-//		ramp(0);				/* Ramp-down to GND level */
-//		TCCR0A = 0;	TCCR0B = 0;	/* Stop PWM */
-//	}
-//	cli();
-//}
 
 static
-void audio_off (void)   /* Disable audio output functions */
+void audio_off (void)	/* Disable audio output functions */
 {
-   OCR0A = 128 ;
-   OCR0B = 128 ;
-   
-   if (TCCR1B) {
-      TCCR1B = 0;            /* Stop audio timer */
-   }
+	OCR0A = 128 ;
+	OCR0B = 128 ;
+	
+	if (TCCR1B) {
+		TCCR1B = 0;				/* Stop audio timer */
+//		ramp(0);				/* Ramp-down to GND level */
+//		TCCR0A = 0;	TCCR0B = 0;	/* Stop PWM */
+	}
+//	cli();
 }
-
-
-
 
 #if 0
 static
@@ -380,7 +427,7 @@ BYTE play (		/* 0:Normal end, 1:Continue to play, 2:Disk error, 3:No file, 4:Inv
 
 
 //	sei();
-//	if (InMode >= 2) Cmd = 0;	/* Clear command code (Edge triggered) */
+	if (InMode >= 2) Cmd = 0;	/* Clear command code (Edge triggered) */
 
 	/* Open an audio file "nnn.WAV" (nnn=001..255) */
 //	i = 2; n = fn;
@@ -497,11 +544,21 @@ int main (void)
 	DDRC  = 0b00000011;
 	PORTC = 0b00000000;		
 
-	BUSY_OFF() ;
+	BUSY_ON() ;
+//	BUSY_OFF() ;
 
 	DDRC |= 0b00111100;		// DEBUG
 
-	delay_ms(200);
+//	delay_ms(200);
+
+	// Set up serial I/F at 38400
+	UBRR0H = 0 ;
+	UBRR0L = 39-1 ;
+	UCSR0C = 0x06 ;
+	UCSR0B = 0x18 ;
+	UCSR0A = _BV(U2X0); //Double speed mode USART0
+	DDRD &= ~0x01 ;		// RX pin as input
+	PORTD |= 0x01 ;		// With a pullup
 
 // Set up Timer2 for timeouts
 // Counts round every 21mS at 12 MHz
@@ -516,16 +573,17 @@ int main (void)
 	EIMSK = 0b00000001; //select interrupt on rising edge on PD2(INT0)
 	sei();
 //	i=0;
-	for (;;) {
+	for (;;)
+	{
 
 //		led_sign(2);	// Disk error or Media mount failed
 
 		if (pf_mount(&Fs) == FR_OK) {	// Initialize FS
 
+			BUSY_OFF() ;
 			GPIOR0 = 0x10;
 			GPIOR1 = 0;
 			GPIOR2 = 0;
-
 
 			/* Main loop */
 			do {
@@ -545,9 +603,55 @@ int main (void)
 				if (rc != 1) Cmd = 0;		/* Clear code when normal end or error */
 				}
 			} while (rc != 2);				/* Continue while no disk error */
-
+			BUSY_ON() ;
 		}
 		led_sign(2);	/* Disk error or Media mount failed */
+		pollBoot() ;
 	}
 }
+
+#ifdef __AVR_ATmega88__
+#define BOOTADDR	0x1E00
+#endif
+
+#ifdef __AVR_ATmega88P__
+#define BOOTADDR	0x1E00
+#endif
+
+#ifdef __AVR_ATmega168__
+#define BOOTADDR	0x3E00
+#endif
+
+#ifdef __AVR_ATmega328__
+#define BOOTADDR	0x7E00
+#endif
+
+#ifdef __AVR_ATmega328P__
+#define BOOTADDR	0x7E00
+#endif
+
+
+void pollBoot()
+{
+  if ((UCSR0A & _BV(RXC0)))
+	{
+		uint8_t chr ;
+  	chr = UDR0 ;
+		if ( chr == 0x20 )
+		{
+			if ( LastSerialRx == 0x30 )
+			{
+				// Go to Bootloader
+				register void (*p)() ;
+				p = (void *)BOOTADDR ;
+				cli() ;
+  			MCUSR = 0 ;
+  			SP=RAMEND;  // This is done by hardware reset
+				(*p)() ;
+			}
+		}
+		LastSerialRx = chr ;
+	}
+}
+
 

@@ -1,9 +1,9 @@
 /*-----------------------------------------------------------------------*/
-/* PFF - transformation of original module for ATMega328
-/* Need to be configured of CS pin (in original design is PB0)
-/* Need proper configuration of SPI interface and ports
-/* 
-/* ORIGINAL COPYRIGHT:
+/* PFF - transformation of original module for ATMega328                 */
+/* Need to be configured of CS pin (in original design is PB0)           */
+/* Need proper configuration of SPI interface and ports                  */
+/*                                                                       */
+/* ORIGINAL COPYRIGHT:                                                   */
 /* PFF - Low level disk control module for ATtiny861    (C)ChaN, 2010    */
 /*-----------------------------------------------------------------------*/
 
@@ -18,6 +18,14 @@
 void xmit_spi (BYTE);
 BYTE rcv_spi (void);
 void fwd_blk_part(void*, WORD, WORD);
+
+static inline uint8_t yrcv_spi()
+{
+	SPDR = 0xFF ;
+	while(( SPSR & 0x80 ) == 0 )
+		;
+	return SPDR ;
+}
 
 
 /* Definitions for MMC/SDC command */
@@ -68,7 +76,7 @@ static
 void release_spi (void)
 {
 	DESELECT();
-	rcv_spi();
+	yrcv_spi();
 }
 
 
@@ -94,9 +102,9 @@ BYTE send_cmd (
 
 	/* Select the card and wait for ready */
 	DESELECT();
-	rcv_spi();
+	yrcv_spi();
 	SELECT();
-	rcv_spi();
+	yrcv_spi();
 
 	/* Send command packet */
 	xmit_spi(cmd);						/* Start + Command index */
@@ -112,7 +120,7 @@ BYTE send_cmd (
 	/* Receive command response */
 	n = 10;								/* Wait for a valid response in timeout of 10 attempts */
 	do {
-		res = rcv_spi();
+		res = yrcv_spi();
 		res2 = res;
 	} while ((res & 0x80) && --n);
 
@@ -149,22 +157,22 @@ DSTATUS disk_initialize (void)
 
 //	delay_ms(200);
 //	led_sign_f(8);
-	for (t = 10; t; t--) rcv_spi();	/* Dummy clocks */
-//	rcv_spi();	/* Dummy clock */
+	for (t = 10; t; t--) yrcv_spi();	/* Dummy clocks */
+//	yrcv_spi();	/* Dummy clock */
 //	led_sign_f(8);
 	SELECT();
 //	delay_ms(200);
 //	led_sign_f(8);
-	for (t = 600; t; t--) rcv_spi();	/* Dummy clocks */
+	for (t = 600; t; t--) yrcv_spi();	/* Dummy clocks */
 	ty = 0;
 	if (send_cmd(CMD0, 0) == 1) {			/* Enter Idle state */
 //	if (1 == 1) {			/* Enter Idle state */
 		if (send_cmd(CMD8, 0x1AA) == 1) {	/* SDv2 */
-			for (n = 0; n < 4; n++) ocr[n] = rcv_spi();		/* Get trailing return value of R7 resp */
+			for (n = 0; n < 4; n++) ocr[n] = yrcv_spi();		/* Get trailing return value of R7 resp */
 			if (ocr[2] == 0x01 && ocr[3] == 0xAA) {				/* The card can work at vdd range of 2.7-3.6V */
 				for (t = 25000; t && send_cmd(ACMD41, 1UL << 30); t--) ;	/* Wait for leaving idle state (ACMD41 with HCS bit) */
 				if (t && send_cmd(CMD58, 0) == 0) {		/* Check CCS bit in the OCR */
-					for (n = 0; n < 4; n++) ocr[n] = rcv_spi();
+					for (n = 0; n < 4; n++) ocr[n] = yrcv_spi();
 					ty = (ocr[0] & 0x40) ? CT_SD2 | CT_BLOCK : CT_SD2;	/* SDv2 */
 				}
 			}
@@ -211,7 +219,7 @@ DRESULT disk_readp (
 
 		t = 30000;
 		do {							/* Wait for data packet in timeout of 100ms */
-			rc = rcv_spi();
+			rc = yrcv_spi();
 		} while (rc == 0xFF && --t);
 
 		if (rc == 0xFE) {
