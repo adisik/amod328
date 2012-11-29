@@ -17,6 +17,7 @@ COMMON = -mmcu=$(MCU)
 CFLAGS = $(COMMON)
 CFLAGS += -Wall -gdwarf-2 -std=gnu99 -DF_CPU=12000000UL -Os -funsigned-char -funsigned-bitfields -fpack-struct -fshort-enums
 CFLAGS += -MD -MP -MT $(*F).o -MF dep/$(@F).d 
+CFLAGS += -Wno-strict-aliasing
 
 ## Assembly specific flags
 ASMFLAGS = $(COMMON)
@@ -38,6 +39,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 ## Objects that must be built in order to link
 OBJECTS = amod328.o asmfunc.o mmc.o pff.o 
+# ff.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -56,6 +58,9 @@ mmc.o: ../mmc.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 pff.o: ../pff.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+ff.o: ../ff.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link

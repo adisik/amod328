@@ -1,0 +1,24 @@
+====================================================================================
+Amod328 changelog
+Please insert a short description of a change by inserting it below this header and 
+above the previous change.
+
+Format is as follows:
+******************************************
+CHANGELOG: 25-APR-2011  XXX
+description here
+====================================================================================
+
+******************************************
+CHANGELOG: 29-11-2012   MPB
+Added changelog file
+Added bootloader sub-directory with bootloader
+Add bootload request monitoring
+Set BUSY ON at startup
+Don't stop PWM output, removes clicks/pops
+Add Beeper volume setting
+Comment out debug
+Inline SPI code in asmfunc.s, speeds up SD access
+Add 'C' routine for SPI access from 'C' code
+Add 256 byte SD buffer to speed up directory access
+
