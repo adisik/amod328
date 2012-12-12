@@ -1,0 +1,1 @@
+These Eagle files are out of date, so don't use them as is! I'm waiting for the design to stabilize before redoing them.
