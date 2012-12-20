@@ -1,8 +1,9 @@
 12/19/2012
 
-This is a Eagle-ified version of HaGeHa's AudioMega board for the 9x. It uses 
-the same design with DIL versions of the ATMEGA328P and LM386 mounted on the 
-bottom. The crystal can be mounted on either side I believe.
+This is a version of MikeB's 9xVoice board for the 9x, copied from images of
+his Eagle designs posted on 9xforums. MikeB obviously knows what he's doing, 
+as this is an amazing layout! It uses no SMD components, so should be easy to 
+build for most of us mere mortals.
 
 Eagle CAD Version: 6.3.0
 
