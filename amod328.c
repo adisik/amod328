@@ -5,31 +5,30 @@
 #include <avr/wdt.h>
 #include "pff.h"
 
-#define MODE 2
 #define FCC(c1,c2,c3,c4)	(((DWORD)c4<<24)+((DWORD)c3<<16)+((WORD)c2<<8)+(BYTE)c1)	/* FourCC */
 
 #define sbi(reg, bit) reg |= (1<<bit)
 #define cbi(reg, bit) reg &= ~(1<<bit)
 #define ckbi(reg, bit) reg & (1<<bit)
 
-
-#define LED_ON()	PORTC |= _BV(1) //define pin for LED
-#define LED_OFF()	PORTC &= ~_BV(1)
+//#define LED_ON()	PORTC |= _BV(1) //define pin for LED
+//#define LED_OFF()	PORTC &= ~_BV(1)
 
 #define BUSY_ON()	PORTC |= _BV(0) //define pin for BUSY
 #define BUSY_OFF()	PORTC &= ~_BV(0)
 
-
-#ifndef MODE
-#error Wrong make file.
+#ifndef F_CPU
+#define F_CPU 12000000UL
 #endif
 
+#define BAUDRATE 38400
+#define UBRR F_CPU/(8*BAUDRATE)-1
+
+#define TESTING	0
 
 void delay_ms (WORD);	/* Defined in asmfunc.S */
 void delay_us (WORD);	/* Defined in asmfunc.S */
 void pollBoot( void ) ;
-
-//EMPTY_INTERRUPT(PCINT_vect); //Пока пустой обработчик, позднее повесим
 
 /*---------------------------------------------------------*/
 /* Work Area                                               */
@@ -37,6 +36,7 @@ void pollBoot( void ) ;
 
 volatile BYTE FifoRi, FifoWi, FifoCt;	/* FIFO controls */
 volatile WORD Command;	/* Control commands */
+
 BYTE Buff[256];		/* Audio output FIFO */
 
 BYTE InMode, Cmd;	/* Input mode and received command value */
@@ -146,19 +146,19 @@ int16_t mult( int16_t mx )
 //}
 
 
-static
-void led_sign (
-	BYTE ct		/* Number of flashes */
-)
-{
-	do {
-		delay_ms(200);
-		LED_ON();
-		delay_ms(100);
-		LED_OFF();
-	} while (--ct);
-	delay_ms(1000);
-}
+//static
+//void led_sign (
+//	BYTE ct		/* Number of flashes */
+//)
+//{
+//	do {
+//		delay_ms(200);
+//		LED_ON();
+//		delay_ms(100);
+//		LED_OFF();
+//	} while (--ct);
+//	delay_ms(1000);
+//}
 
 void setBeeperVolume( uint8_t volume )
 {
@@ -233,6 +233,21 @@ BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 				}
 				sei() ;
 				CommandTimeout = 0 ;
+#if TESTING
+			// Debug test of serial Tx
+				UDR0 = 'X' ;
+				PORTB ^= 0x02 ;		// Toggle backlight
+				static uint8_t timer = 0 ;
+
+				if ( ++timer > 50 )
+				{
+					timer = 0 ;
+					BUSY_ON() ;
+					play( 40 ) ;	/* Play corresponding audio file */
+					BUSY_OFF() ;
+					audio_off();	/* Disable audio output */
+				}
+#endif				 
 			}
 		}
 	}
@@ -250,7 +265,6 @@ void ramp (		/* Ramp-up/down audio output (anti-pop feature) */
 	int dir		/* 0:Ramp-down, 1:Ramp-up */
 )
 {
-#if MODE != 0	/* This function is enebled on non-OCL output cfg. */
 	BYTE v, d, n;
 
 
@@ -267,8 +281,8 @@ void ramp (		/* Ramp-up/down audio output (anti-pop feature) */
 		OCR0A = v; OCR0B = v;
 		delay_us(100);
 	} while (--n);
-#endif
 }
+
 
 static
 void audio_on (void)	/* Enable audio output functions */
@@ -308,7 +322,8 @@ void audio_off (void)	/* Disable audio output functions */
 //	cli();
 }
 
-#if 0
+
+#if 0 //debug
 static
 void wait_status (void)	/* Wait for a code change */
 {
@@ -342,6 +357,7 @@ void wait_status (void)	/* Wait for a code change */
 //	} 
 }
 #endif
+
 
 static
 DWORD load_header (void)	/* 2:I/O error, 4:Invalid file, >=1024:Ok(number of samples) */
@@ -391,8 +407,12 @@ DWORD load_header (void)	/* 2:I/O error, 4:Invalid file, >=1024:Ok(number of sam
 			if (b & 16) al <<= 1;
 			f = LD_DWORD(Buff+4);					/* Check sampling freqency (8k-48k) */
 			if (f < 8000 || f > 48000) return 4;
-//			OCR0A = (BYTE)(16000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
-			OCR1A = (BYTE)(12000000UL/8/f) - 1;		/* Set interval timer (sampling period) */
+
+
+			// **** We must set interval timer corresponding F_CPU
+			OCR1A = (BYTE)(F_CPU/8/f) - 1;		/* Set interval timer (sampling period) */
+			// **** END We must set interval timer corresponding F_CPU
+
 			break;
 
 		case FCC('d','a','t','a') :		/* 'data' chunk (start to play) */
@@ -430,13 +450,13 @@ BYTE play (		/* 0:Normal end, 1:Continue to play, 2:Disk error, 3:No file, 4:Inv
 	if (InMode >= 2) Cmd = 0;	/* Clear command code (Edge triggered) */
 
 	/* Open an audio file "nnn.WAV" (nnn=001..255) */
-//	i = 2; n = fn;
+//	i = 2; n = fn; //for 3-sign name
 	i = 3; n = fn; //for 4-sign name
 	do {
 		Buff[i] = (BYTE)(n % 10) + '0'; n /= 10;
 	} while (i--);
-//	strcpy_P((char*)&Buff[3], PSTR(".WAV"));
-	strcpy_P((char*)&Buff[4], PSTR(".WAV"));
+//	strcpy_P((char*)&Buff[3], PSTR(".WAV")); //for 3-sign name
+	strcpy_P((char*)&Buff[4], PSTR(".WAV")); //for 4-sign name
 	res = pf_open((char*)Buff);
 	if (res == FR_NO_FILE) return 3;
 	if (res != FR_OK) return 2;
@@ -451,8 +471,6 @@ BYTE play (		/* 0:Normal end, 1:Continue to play, 2:Disk error, 3:No file, 4:Inv
 	for (;;) {
 //		if (pf_read(0, 512 - (Fs.fptr % 512), &rb) != FR_OK) {		/* Snip sector unaligned part */
 		if (pf_read(0, 512 - (spa % 512), &rb) != FR_OK) {		/* Snip sector unaligned part */
-//	delay_ms(200);
-//	led_sign(2);
 			rc = 2; break;
 		}
 		sz -= rb;
@@ -503,7 +521,6 @@ BYTE play (		/* 0:Normal end, 1:Continue to play, 2:Disk error, 3:No file, 4:Inv
 	}
 
 	while (FifoCt) ;			/* Wait for audio FIFO empty */
-//	OCR1A = 0x80; OCR1B = 0x80;	/* Return DAC out to center */
 	OCR0A = 0x80; OCR0B = 0x80;	/* Return DAC out to center */
 
 
@@ -530,14 +547,9 @@ int main (void)
 //	GIMSK = _BV(PCIE2);
 
 	/* Initialize ports */
-//	PORTA = 0b11111011;		// PORTA [pppppLHp]
-//	DDRA  = 0b00000110;
-
 	DDRD  = 0b01100000;
 	PORTD = 0b00000000;
 
-//	PORTB = 0b01110001;		// PORTB [-pppLLLH]
-//	DDRB  = 0b00001111;
 	DDRB  = 0b00101110;
 	PORTB = 0b00011100;		
 
@@ -552,8 +564,10 @@ int main (void)
 //	delay_ms(200);
 
 	// Set up serial I/F at 38400
-	UBRR0H = 0 ;
-	UBRR0L = 39-1 ;
+// **** We must set this bandwidth corresponding F_CPU
+	UBRR0H = UBRR>>8 ;
+	UBRR0L = UBRR ;
+// END**** We must set this bandwidth corresponding F_CPU
 	UCSR0C = 0x06 ;
 	UCSR0B = 0x18 ;
 	UCSR0A = _BV(U2X0); //Double speed mode USART0
@@ -562,9 +576,11 @@ int main (void)
 
 // Set up Timer2 for timeouts
 // Counts round every 21mS at 12 MHz
+// **** We must set this timeouts corresponding F_CPU
 	TCCR2A = 0 ;
 	TCNT2 = 0 ;
 	TCCR2B = 7 ;		// Clock div 1024
+// END**** We must set this timeouts corresponding F_CPU
 
 	GPIOR0 = 0x10;	// Last a_clock set high
 	GPIOR1 = 0;
@@ -575,9 +591,6 @@ int main (void)
 //	i=0;
 	for (;;)
 	{
-
-//		led_sign(2);	// Disk error or Media mount failed
-
 		if (pf_mount(&Fs) == FR_OK) {	// Initialize FS
 
 			BUSY_OFF() ;
@@ -594,18 +607,16 @@ int main (void)
 				if (Command!=0xFFFF)
 				{
 //					printf("%d", Command);
-	BUSY_ON() ;
+					BUSY_ON() ;
 					rc = play(Command);				/* Play corresponding audio file */
 //					rc = play(0001);				/* Play corresponding audio file */
-	BUSY_OFF() ;
+					BUSY_OFF() ;
 					audio_off();	/* Disable audio output */
-//					if (rc >= 2) led_sign(rc);	/* Display if any error occured */
 				if (rc != 1) Cmd = 0;		/* Clear code when normal end or error */
 				}
 			} while (rc != 2);				/* Continue while no disk error */
 			BUSY_ON() ;
 		}
-		led_sign(2);	/* Disk error or Media mount failed */
 		pollBoot() ;
 	}
 }
@@ -650,6 +661,21 @@ void pollBoot()
 				(*p)() ;
 			}
 		}
+
+#if TESTING
+		else
+		{
+			UDR0 = chr + 3 ;
+			if ( (chr >= '0') && (chr <= '9') )
+			{
+				BUSY_ON() ;
+				play( chr - '0') ;	/* Play corresponding audio file */
+				BUSY_OFF() ;
+				audio_off();		/* Disable audio output */
+			}
+		}
+#endif
+
 		LastSerialRx = chr ;
 	}
 }

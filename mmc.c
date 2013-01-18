@@ -10,10 +10,6 @@
 #include <avr/io.h>
 #include "diskio.h"
 
-#define LED_ON()	PORTD |= _BV(4) //define pin for LED
-#define LED_OFF()	PORTD &= ~_BV(4)
-
-
 /* SPI control functions (defined in asmfunc.S) */
 void xmit_spi (BYTE);
 BYTE rcv_spi (void);
@@ -43,21 +39,6 @@ static inline uint8_t yrcv_spi()
 /* Port Controls  (Platform dependent) */
 #define SELECT()	PORTB &= ~_BV(2)	/* PB2: MMC CS = L */
 #define	DESELECT()	PORTB |=  _BV(2)	/* PB2: MMC CS = H */
-
-
-void led_sign_f (
-	BYTE ct		/* Number of flashes */
-)
-{
-	do {
-		delay_ms(100);
-		LED_ON();
-		delay_ms(50);
-		LED_OFF();
-	} while (--ct);
-	delay_ms(1000);
-}
-
 
 /*--------------------------------------------------------------------------
 
@@ -155,14 +136,9 @@ DSTATUS disk_initialize (void)
 
 
 
-//	delay_ms(200);
-//	led_sign_f(8);
 	for (t = 10; t; t--) yrcv_spi();	/* Dummy clocks */
 //	yrcv_spi();	/* Dummy clock */
-//	led_sign_f(8);
 	SELECT();
-//	delay_ms(200);
-//	led_sign_f(8);
 	for (t = 600; t; t--) yrcv_spi();	/* Dummy clocks */
 	ty = 0;
 	if (send_cmd(CMD0, 0) == 1) {			/* Enter Idle state */
