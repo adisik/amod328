@@ -1,0 +1,89 @@
+Partlist exported from 9xVoice.sch at 03/02/2013
+
+Part   Value       Description               
+C1     100n        100nF  50V X7R Capacitor 0.1 inch lead pitch
+C2     10uF        10uF 16V Tantalum bead   0.1 inch lead pitch
+C3     10uF        10uF 16V Tantalum bead   0.1 inch lead pitch
+C4     10uF        10uF 16V Tantalum bead   0.1 inch lead pitch
+C5     100n        100nF  50V X7R Capacitor 0.1 inch lead pitch 
+C6     10pF        10pF 100V 5% COG Capacitor 0.1 inch lead pitch
+C7     22pF        22pF 100V 5% COG Capacitor 0.1 inch lead pitch
+C8     22pF        22pF 100V 5% COG Capacitor 0.1 inch lead pitch
+C9     100n        100nF  50V X7R Capacitor 0.1 inch lead pitch 
+C10    100n        100nF  50V X7R Capacitor 0.1 inch lead pitch 
+C11    33n         33nF film capacitor 0.1 or 0.2 inch pitch
+C13    470p        470pF film capacitor 0.1 or 0.2 inch pitch
+C14    100n        100nF  50V X7R Capacitor 0.1 inch lead pitch 
+C15    250uF       250uF Electrolytic 10V
+C16    100n        100nF  50V X7R Capacitor 0.1 inch lead pitch 
+C17    100n        100nF  50V X7R Capacitor 0.1 inch lead pitch 
+C18    3n9         3.9nF film capacitor 0.1 or 0.2 inch pitch
+C19    10n         10nF film capacitor 0.1 or 0.2 inch pitch
+D1     BAT85       BAT85  Schottky diode
+D3     BAT85     RS232 SERIAL ONLY  BAT85  Schottky diode
+D4     BAT85     LOGIC SERIAL ONLY  BAT85  Schottky diode
+D5     BAT85     LOGIC SERIAL ONLY  BAT85  Schottky diode
+IC1    ATMEGA328P  ATMEGA328-20PU MCU  28 pin DIL
+IC2    LE33CZ      LE33CZ Low dropout 3.3V regulator                          
+IC3    LM386N-4    LM386N-4 8-pin DIL                             
+IC4    7805        5 volt linear regulator
+JP1                2X5 header 0.1 inch pitch
+JP2                Wire to micro SD card adapter
+JP4                Wire link                
+Q1     12MHz       12 MHz low profile crystal
+R1     2K2         2K2 MFR25 Resistor                          
+R2     10K         10K MFR25 Resistor                         
+R3     100K        100K MFR25 Resistor                         
+R4     10K         10K MFR25 Resistor                         
+R5     10K         10K MFR25 Resistor                         
+R6     150R        150 ohm MFR25 Resistor
+R7     10K         10K MFR25 Resistor                         
+R8     1K          1K0 MFR25 Resistor                         
+R9     470K        470K MFR25 Resistor                         
+R10    1K          1K0 MFR25 Resistor                         
+R11    560K        560K MFR25 Resistor
+R12    10R         10 ohm MFR25 Resistor
+R13    47K         47K MFR25 Resistor                         
+R14    4K7         4K7 MFR25 Resistor                         
+R15    2K2         2K2 MFR25 Resistor                         
+R16    1K          1K0 MFR25 Resistor                         
+R17    100K        100K MFR25 Resistor                         
+R18    10K       RS232 SERIAL ONLY - 10K MFR25 Resistor  
+R19    10K       RS232 SERIAL ONLY - 10K MFR25 Resistor  
+R20    22K       RS232 SERIAL ONLY - 22K MFR25 Resistor
+R21    2K2       RS232 SERIAL ONLY - 2K2 MFR25 Resistor
+R22    470R      RS232 SERIAL ONLY - 470 ohm MFR25 Resistor
+R23    47K         47K MFR25 Resistor                          
+R24    10K         10K MFR25 Resistor  
+T2     2N7000    LOGIC SERIAL ONLY  FET
+TR1    BC548B    NPN Transistor
+TR2    BC548B    NPN Transistor
+TR3    BC548B    NPN Transistor
+TR4    BC548B    RS232 SERIAL ONLY  NPN Transistor
+TR5    BC548B    RS232 SERIAL ONLY  NPN Transistor
+
+Wired connections to the board:
+SP                 
+BL                 
+RXD (RS232 serial)
+TXD (RS232 serial)
+X1 (Unused)
+X2 (Unused)
+X3 (Unused)
+B7                                                            
+BEEPER                                                        
+S1                                                            
+SGND                                                          
+SUPPLY                                                        
+DB0                                                           
+DB1                                                           
+DB2                                                           
+DB3 (Unused)
+GND                                                           
+LRXD (Logic serial)
+LTXD (Logic serial)
+MRD                                                           
+MTD                                                           
+
+
+
