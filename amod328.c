@@ -22,13 +22,14 @@
 #endif
 
 #define BAUDRATE 38400
-#define UBRR F_CPU/(8*BAUDRATE)-1
+#define UBRR (F_CPU/(8*BAUDRATE)-1)
 
 #define TESTING	0
 
 void delay_ms (WORD);	/* Defined in asmfunc.S */
 void delay_us (WORD);	/* Defined in asmfunc.S */
 void pollBoot( void ) ;
+void tx_single_byte( uint8_t byte ) ;
 
 /*---------------------------------------------------------*/
 /* Work Area                                               */
@@ -51,6 +52,12 @@ uint8_t CommandTimeout ;
 uint8_t Volume ;
 
 uint8_t LastSerialRx ;
+
+
+
+static BYTE play ( WORD fn ) ;
+static void audio_off (void) ;
+
 
 /*---------------------------------------------------------*/
 /* Sub-routines                                            */
@@ -219,8 +226,6 @@ BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 		{ // 21mS passed
 			TIFR2 = (1 << TOV2) ;			// Clear timer 2 overflow flag
 				
-			// Debug test of serial Tx
-				
 			if ( ++CommandTimeout > 9)
 			{ // Around 200 mS with no input
 				// Abandon any received command (safely)
@@ -235,7 +240,7 @@ BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 				CommandTimeout = 0 ;
 #if TESTING
 			// Debug test of serial Tx
-				UDR0 = 'X' ;
+				tx_single_byte( 'X' ) ;
 				PORTB ^= 0x02 ;		// Toggle backlight
 				static uint8_t timer = 0 ;
 
@@ -653,6 +658,7 @@ void pollBoot()
 			if ( LastSerialRx == 0x30 )
 			{
 				// Go to Bootloader
+				UCSR0B |= ( 1 << TXEN0) ;	// Enable TX
 				register void (*p)() ;
 				p = (void *)BOOTADDR ;
 				cli() ;
@@ -665,7 +671,7 @@ void pollBoot()
 #if TESTING
 		else
 		{
-			UDR0 = chr + 3 ;
+			tx_single_byte( chr + 3 ) ;
 			if ( (chr >= '0') && (chr <= '9') )
 			{
 				BUSY_ON() ;
@@ -675,9 +681,23 @@ void pollBoot()
 			}
 		}
 #endif
-
+		
 		LastSerialRx = chr ;
 	}
 }
 
+void tx_single_byte( uint8_t byte )
+{
+	UCSR0B |= ( 1 << TXEN0) ;	// Enable TX
+	UDR0 = byte ;
+	UCSR0A = ( 1 << TXC0 ) | _BV(U2X0) ;		// CLEAR flag
+	UCSR0B |= ( 1 << TXCIE0 ) ;	// Enable interrupt
+}
+
+ISR(USART_TX_vect)
+{
+	DDRD &= ~0x02 ;			// Configure pin as input
+	PORTD &= ~0x02 ;		// low, so no pullup
+	UCSR0B &= ~( ( 1 << TXCIE0 ) | ( 1 << TXEN0) ) ;	// Disable interrupt, and TX
+}
 
