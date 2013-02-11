@@ -11,6 +11,10 @@ description here
 
 ******************************************
 CHANGELOG: 11-02-2013   MPB
+r82 Make TX disable work properly
+
+******************************************
+CHANGELOG: 11-02-2013   MPB
 Add disable of serial output
 
 ******************************************

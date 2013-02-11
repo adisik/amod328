@@ -574,10 +574,13 @@ int main (void)
 	UBRR0L = UBRR ;
 // END**** We must set this bandwidth corresponding F_CPU
 	UCSR0C = 0x06 ;
-	UCSR0B = 0x18 ;
+	UCSR0B = ( 1 << RXEN0) ;		// Do NOT enable Tx, allow trim to work
 	UCSR0A = _BV(U2X0); //Double speed mode USART0
 	DDRD &= ~0x01 ;		// RX pin as input
 	PORTD |= 0x01 ;		// With a pullup
+	
+	DDRD &= ~0x02 ;			// Configure Tx pin as input to allow trim to work
+	PORTD &= ~0x02 ;		// low, so no pullup
 
 // Set up Timer2 for timeouts
 // Counts round every 21mS at 12 MHz
