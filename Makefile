@@ -37,7 +37,7 @@ HEX_EEPROM_FLAGS += --change-section-lma .eeprom=0 --no-change-warnings
 
 
 ## Objects that must be built in order to link
-OBJECTS = amod328.o asmfunc.o mmc.o pff.o 
+OBJECTS = amod328.o asmfunc.o mmc.o pff.o ff.o fmmc.o ymodem.o
 
 ## Objects explicitly added by the user
 LINKONLYOBJECTS = 
@@ -56,6 +56,15 @@ mmc.o: ../mmc.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 pff.o: ../pff.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+ff.o: ../ff.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+fmmc.o: ../fmmc.c
+	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
+
+ymodem.o: ../ymodem.c
 	$(CC) $(INCLUDES) $(CFLAGS) -c  $<
 
 ##Link
