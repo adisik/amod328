@@ -23,8 +23,8 @@
 / the configuration options.
 /
 /----------------------------------------------------------------------------*/
-#ifndef _FATFS
-#define _FATFS
+#ifndef _PFATFS
+#define _PFATFS
 
 #define	_USE_READ	1	/* 1:Enable pf_read() */
 
@@ -189,4 +189,4 @@ FRESULT pf_readdir (DIR*, FILINFO*);			/* Read a directory item from the open di
 #endif
 
 
-#endif /* _FATFS */
+#endif /* _PFATFS */

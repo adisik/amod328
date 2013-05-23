@@ -507,7 +507,19 @@ FRESULT dir_next (	/* FR_OK:Succeeded, FR_NO_FILE:End of table */
 /* Directory handling - Find an object in the directory                  */
 /*-----------------------------------------------------------------------*/
 
-BYTE DirBuffer[256] ;
+union t_buff
+{
+	BYTE bytes[256];		/* Audio output FIFO */
+	DWORD dwords[64] ;
+} ;
+
+struct t_audio_buffers
+{
+	union t_buff Buff ;
+	BYTE DirBuffer[256] ;
+} ;
+
+extern struct t_audio_buffers Abuff ;
 
 static
 FRESULT dir_find (
@@ -525,7 +537,7 @@ FRESULT dir_find (
 	do {
 		if ( (dj->index & 7) == 0 )
 		{ // Need to read data
-			res = disk_readp( DirBuffer, dj->sect, (WORD)((dj->index & 8) * 32), 256)	/* Read half a sector */
+			res = disk_readp( Abuff.DirBuffer, dj->sect, (WORD)((dj->index & 8) * 32), 256)	/* Read half a sector */
 				? FR_DISK_ERR : FR_OK;
 		}
 		else
@@ -533,7 +545,7 @@ FRESULT dir_find (
 			res = FR_OK ;
 		}
 		if (res != FR_OK) break;
-		memcpy( dir, &DirBuffer[((dj->index % 8) * 32)], 32 ) ;
+		memcpy( dir, &Abuff.DirBuffer[((dj->index % 8) * 32)], 32 ) ;
 		c = dir[DIR_Name];	/* First character */
 		if (c == 0) { res = FR_NO_FILE; break; }	/* Reached to end of table */
 		if (!(dir[DIR_Attr] & AM_VOL) && !mem_cmp(dir, dj->fn, 11)) /* Is it a valid entry? */

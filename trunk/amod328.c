@@ -4,6 +4,7 @@
 #include <avr/sleep.h>
 #include <avr/wdt.h>
 #include "pff.h"
+#include "fdiskio.h"
 
 #define FCC(c1,c2,c3,c4)	(((DWORD)c4<<24)+((DWORD)c3<<16)+((WORD)c2<<8)+(BYTE)c1)	/* FourCC */
 
@@ -25,11 +26,13 @@
 #define UBRR (F_CPU/(8*BAUDRATE)-1)
 
 #define TESTING	0
+#define YMODEM	1
 
 void delay_ms (WORD);	/* Defined in asmfunc.S */
 void delay_us (WORD);	/* Defined in asmfunc.S */
-void pollBoot( void ) ;
+uint8_t  pollBoot( void ) ;
 void tx_single_byte( uint8_t byte ) ;
+volatile uint8_t Serial_busy ;
 
 /*---------------------------------------------------------*/
 /* Work Area                                               */
@@ -38,7 +41,19 @@ void tx_single_byte( uint8_t byte ) ;
 volatile BYTE FifoRi, FifoWi, FifoCt;	/* FIFO controls */
 volatile WORD Command;	/* Control commands */
 
-BYTE Buff[256];		/* Audio output FIFO */
+union t_buff
+{
+	BYTE bytes[256];		/* Audio output FIFO */
+	DWORD dwords[64] ;
+} ;
+
+// Assembly languags accesses Abuff directly by the name Abuff
+// This union provides a 512 byte buffer
+struct t_audio_buffers
+{
+	union t_buff Buff ;
+	BYTE DirBuffer[256] ;
+} Abuff ;
 
 BYTE InMode, Cmd;	/* Input mode and received command value */
 
@@ -153,20 +168,6 @@ int16_t mult( int16_t mx )
 //}
 
 
-//static
-//void led_sign (
-//	BYTE ct		/* Number of flashes */
-//)
-//{
-//	do {
-//		delay_ms(200);
-//		LED_ON();
-//		delay_ms(100);
-//		LED_OFF();
-//	} while (--ct);
-//	delay_ms(1000);
-//}
-
 void setBeeperVolume( uint8_t volume )
 {
 	volume >>= 1 ;		// gives 3, 2, 1 and 0
@@ -217,7 +218,11 @@ BYTE chk_input (void)	/* 0:Not changed, 1:Changed */
 		return 1;
 	}
 	// No command received, check for timeout, or bootloader request
-	pollBoot() ;
+	if ( pollBoot() )
+	{
+		// Request for PC communication
+		return 2 ;
+	}
 	t = GPIOR0 & 0x1F ;		// a_clock and count bits
 	x = GpioCopy ;
 	if ( t == x )
@@ -378,23 +383,23 @@ DWORD load_header (void)	/* 2:I/O error, 4:Invalid file, >=1024:Ok(number of sam
 
 
 	/* Check RIFF-WAVE file header */
-	if (pf_read(Buff, 12, &rb)) return 2;
-	if (rb != 12 || LD_DWORD(Buff+8) != FCC('W','A','V','E')) return 4;
+	if (pf_read(Abuff.Buff.bytes, 12, &rb)) return 2;
+	if (rb != 12 || LD_DWORD(Abuff.Buff.dwords+2) != FCC('W','A','V','E')) return 4;
 
 	for (;;) {
-		if (pf_read(Buff, 8, &rb)) return 2;		/* Get Chunk ID and size */
+		if (pf_read(Abuff.Buff.bytes, 8, &rb)) return 2;		/* Get Chunk ID and size */
 		if (rb != 8) return 4;
-		sz = LD_DWORD(Buff+4);		/* Chunk size */
+		sz = LD_DWORD(Abuff.Buff.dwords+1);		/* Chunk size */
 
-		switch (LD_DWORD(Buff)) {	/* Switch by chunk type */
+		switch (LD_DWORD(Abuff.Buff.dwords)) {	/* Switch by chunk type */
 		case FCC('f','m','t',' ') :		/* 'fmt ' chunk */
 			if (sz & 1) sz++;
 			if (sz > 128 || sz < 16) return 4;		/* Check chunk size */
-			if (pf_read(Buff, sz, &rb)) return 2;	/* Get the chunk content */
+			if (pf_read(Abuff.Buff.bytes, sz, &rb)) return 2;	/* Get the chunk content */
 			if (rb != sz) return 4;
-			if (Buff[0] != 1) return 4;				/* Check coding type (1: LPCM) */
+			if (Abuff.Buff.bytes[0] != 1) return 4;				/* Check coding type (1: LPCM) */
 
-			b = Buff[2];
+			b = Abuff.Buff.bytes[2];
 
 			if (b < 1 && b > 2) return 4; 			/* Check channels (1/2: Mono/Stereo) */
 			
@@ -402,7 +407,7 @@ DWORD load_header (void)	/* 2:I/O error, 4:Invalid file, >=1024:Ok(number of sam
 			//GPIOR0 = al = b;						/* Save channel flag */
 			al = b;						/* Save channel flag */
 
-			b = Buff[14];
+			b = Abuff.Buff.bytes[14];
 
 			if (b != 8 && b != 16) return 4;		/* Check resolution (8/16 bit) */
 
@@ -410,7 +415,7 @@ DWORD load_header (void)	/* 2:I/O error, 4:Invalid file, >=1024:Ok(number of sam
 			//GPIOR0 |= b;							/* Save resolution flag */
 
 			if (b & 16) al <<= 1;
-			f = LD_DWORD(Buff+4);					/* Check sampling freqency (8k-48k) */
+			f = LD_DWORD(Abuff.Buff.dwords+1);					/* Check sampling freqency (8k-48k) */
 			if (f < 8000 || f > 48000) return 4;
 
 
@@ -458,11 +463,11 @@ BYTE play (		/* 0:Normal end, 1:Continue to play, 2:Disk error, 3:No file, 4:Inv
 //	i = 2; n = fn; //for 3-sign name
 	i = 3; n = fn; //for 4-sign name
 	do {
-		Buff[i] = (BYTE)(n % 10) + '0'; n /= 10;
+		Abuff.Buff.bytes[i] = (BYTE)(n % 10) + '0'; n /= 10;
 	} while (i--);
-//	strcpy_P((char*)&Buff[3], PSTR(".WAV")); //for 3-sign name
-	strcpy_P((char*)&Buff[4], PSTR(".WAV")); //for 4-sign name
-	res = pf_open((char*)Buff);
+//	strcpy_P((char*)&Abuff.Buff.bytes[3], PSTR(".WAV")); //for 3-sign name
+	strcpy_P((char*)&Abuff.Buff.bytes[4], PSTR(".WAV")); //for 4-sign name
+	res = pf_open((char*)Abuff.Buff.bytes);
 	if (res == FR_NO_FILE) return 3;
 	if (res != FR_OK) return 2;
 	/* Get file parameters */
@@ -597,9 +602,15 @@ int main (void)
 	EIMSK = 0b00000001; //select interrupt on rising edge on PD2(INT0)
 	sei();
 //	i=0;
+	
+//	tx_single_byte( 'X' ) ;
+
 	for (;;)
 	{
-		if (pf_mount(&Fs) == FR_OK) {	// Initialize FS
+		uint8_t request ;
+
+		if (pf_mount(&Fs) == FR_OK)
+		{	// Initialize FS
 
 			BUSY_OFF() ;
 			GPIOR0 = 0x10;
@@ -607,11 +618,20 @@ int main (void)
 			GPIOR2 = 0;
 
 			/* Main loop */
-			do {
+			rc = 0 ;
+			do
+			{
 				CommandTimeout = 0 ;
 				TIFR2 = (1 << TOV2) ;			// Clear timer 2 overflow flag
 
-				while (!chk_input());
+				{
+					while (! ( request = chk_input() ) )
+						;
+					if ( request == 2 )
+					{
+						break ;		// From 'do'
+					}
+				}
 				if (Command!=0xFFFF)
 				{
 //					printf("%d", Command);
@@ -620,12 +640,40 @@ int main (void)
 //					rc = play(0001);				/* Play corresponding audio file */
 					BUSY_OFF() ;
 					audio_off();	/* Disable audio output */
-				if (rc != 1) Cmd = 0;		/* Clear code when normal end or error */
+					if (rc != 1) Cmd = 0;		/* Clear code when normal end or error */
 				}
 			} while (rc != 2);				/* Continue while no disk error */
+			if ( request == 2 )
+			{
+				break ;		// From 'for'
+			}
 			BUSY_ON() ;
 		}
-		pollBoot() ;
+		if ( pollBoot() )
+		{
+//			tx_single_byte( 'P' ) ;
+			break ;
+		}
+	}
+	
+	OCR2A = F_CPU / 32 / 4000 - 1;
+	TCCR2A = 0b00000010;
+	TCCR2B = 0b00000011;
+	TIMSK2 |= _BV(OCIE2A);
+	
+	tx_single_byte( '\r' ) ;
+	tx_single_byte( '\n' ) ;
+	tx_single_byte( '>' ) ;
+
+int8_t ymodem_Receive ( void ) ;
+//void testwrite( void ) ;
+void ymount( void ) ;
+
+	ymount() ;
+	 
+	for(;;)
+	{ // Now in PC communication mode
+		ymodem_Receive() ;
 	}
 }
 
@@ -650,7 +698,7 @@ int main (void)
 #endif
 
 
-void pollBoot()
+uint8_t pollBoot()
 {
   if ((UCSR0A & _BV(RXC0)))
 	{
@@ -661,6 +709,10 @@ void pollBoot()
 			if ( LastSerialRx == 0x30 )
 			{
 				// Go to Bootloader
+				
+				TCCR2A = 0 ;
+				TIMSK2 &= ~_BV(OCIE2A);
+				
 				UCSR0B |= ( 1 << TXEN0) ;	// Enable TX
 				register void (*p)() ;
 				p = (void *)BOOTADDR ;
@@ -670,30 +722,42 @@ void pollBoot()
 				(*p)() ;
 			}
 		}
+		else if ( chr == 0x1B )
+		{
+			tx_single_byte( 'E' ) ;
+			if ( LastSerialRx == 0x1B )
+			{
+				tx_single_byte( 'F' ) ;
+				return 1 ;				
+			}
+		}
 
 #if TESTING
-		else
+		else if ( (chr >= '1') && (chr <= '9') )
 		{
-			tx_single_byte( chr + 3 ) ;
-			if ( (chr >= '0') && (chr <= '9') )
-			{
-				BUSY_ON() ;
-				play( chr - '0') ;	/* Play corresponding audio file */
-				BUSY_OFF() ;
-				audio_off();		/* Disable audio output */
-			}
+			tx_single_byte( chr ) ;
+			BUSY_ON() ;
+			play( chr - '0') ;	/* Play corresponding audio file */
+			BUSY_OFF() ;
+			audio_off();		/* Disable audio output */
 		}
 #endif
 		
 		LastSerialRx = chr ;
 	}
+	return 0 ;
 }
 
 void tx_single_byte( uint8_t byte )
 {
+	while ( Serial_busy )
+	{
+		// wait
+	}
 	UCSR0B |= ( 1 << TXEN0) ;	// Enable TX
 	UDR0 = byte ;
 	UCSR0A = ( 1 << TXC0 ) | _BV(U2X0) ;		// CLEAR flag
+	Serial_busy = 1 ;
 	UCSR0B |= ( 1 << TXCIE0 ) ;	// Enable interrupt
 }
 
@@ -702,5 +766,7 @@ ISR(USART_TX_vect)
 	DDRD &= ~0x02 ;			// Configure pin as input
 	PORTD &= ~0x02 ;		// low, so no pullup
 	UCSR0B &= ~( ( 1 << TXCIE0 ) | ( 1 << TXEN0) ) ;	// Disable interrupt, and TX
+	Serial_busy = 0 ;
 }
+
 

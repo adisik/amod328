@@ -209,3 +209,45 @@ DRESULT disk_readp (
 	return res;
 }
 
+DRESULT disk_read (
+        BYTE drv,                       /* Physical drive number (0) */
+        BYTE *buff,                     /* Pointer to the data buffer to store read data */
+        DWORD sector,           /* Start sector number (LBA) */
+        BYTE count                      /* Sector count (1..255) */
+//	void *dest,		/* Pointer to the destination object to put data */
+//	DWORD lba,		/* Start sector number (LBA) */
+//	WORD ofs,		/* Byte offset in the sector (0..511) */
+//	WORD cnt		/* Byte count (1..512), b15:destination flag */
+)
+{
+	DRESULT res;
+	volatile static BYTE rc;
+	WORD t;
+
+
+	if (!(CardType & CT_BLOCK)) sector *= 512;		/* Convert LBA to BA if needed */
+
+	res = RES_ERROR;
+	if (send_cmd(CMD17, sector) == 0) {		/* READ_SINGLE_BLOCK */
+
+		t = 30000;
+		do {							/* Wait for data packet in timeout of 100ms */
+			rc = yrcv_spi();
+		} while (rc == 0xFF && --t);
+
+		if (rc == 0xFE)
+		{
+			for ( t = 0 ; t < 512 ; t += 1 )
+			{
+				rc = yrcv_spi();
+				*buff++ = rc ;
+			}
+			res = RES_OK;
+		}
+	}
+
+	release_spi();
+
+	return res;
+}
+
