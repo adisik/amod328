@@ -10,6 +10,10 @@ description here
 ====================================================================================
 
 ******************************************
+CHANGELOG: 24-05-2013   MPB
+Fix serial update of files >32K
+
+******************************************
 CHANGELOG: 23-05-2013   MPB
 Add serial update of SD card
 also put the correct amod_last.hex up
