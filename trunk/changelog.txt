@@ -10,6 +10,11 @@ description here
 ====================================================================================
 
 ******************************************
+CHANGELOG: 23-05-2013   MPB
+Add serial update of SD card
+also put the correct amod_last.hex up
+
+******************************************
 CHANGELOG: 11-02-2013   MPB
 r82 Make TX disable work properly
 
