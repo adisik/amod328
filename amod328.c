@@ -665,7 +665,7 @@ int main (void)
 	tx_single_byte( '\n' ) ;
 	tx_single_byte( '>' ) ;
 
-int8_t ymodem_Receive ( void ) ;
+void ymodem_Receive ( void ) ;
 //void testwrite( void ) ;
 void ymount( void ) ;
 

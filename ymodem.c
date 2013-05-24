@@ -105,8 +105,6 @@ uint8_t file_name[FILE_NAME_LENGTH];
 
 uint8_t packet_data[PACKET_SIZE + PACKET_OVERHEAD] ;
 
-int16_t size = 0 ;
-
 static int8_t Receive_Byte (uint8_t *c, uint16_t timeout)
 {
 	uint16_t rxchar ;
@@ -267,12 +265,13 @@ uint8_t checksumBlockChk( uint8_t *block )
 
 TCHAR *Tempfile = "Ymodtemp" ;
 
-int8_t ymodem_Receive()
+void ymodem_Receive()
 {
   uint8_t *file_ptr; //, *buf_ptr;
   int16_t i, packet_length, session_done, file_done, packets_received, errors, session_begin ;
 	FRESULT fr ;
 	uint32_t written ;
+	uint32_t size ;
 
 	size = 0 ;
   file_name[0] = 0 ;
@@ -292,7 +291,7 @@ int8_t ymodem_Receive()
             case -1:
               Send_Byte(ACK);
 							fr = f_close( &Tfile ) ;
-              return 0;
+              return ;
               /* End of transmission */
             case 0:
 							fr = f_close( &Tfile ) ;
@@ -313,6 +312,9 @@ int8_t ymodem_Receive()
                   {/* Filename packet has valid data */
 										if ( checksumBlockChk( packet_data ) )
 										{
+											size = 0 ;
+										  file_name[0] = 0 ;
+											
                     	for (i = 0, file_ptr = packet_data + PACKET_HEADER; (*file_ptr != 0) && (i < FILE_NAME_LENGTH);)
                     	{
                     	  file_name[i++] = *file_ptr++;
@@ -382,7 +384,7 @@ int8_t ymodem_Receive()
         case 1:
           Send_Byte(CA);
           Send_Byte(CA);
-          return -3;
+          return ;
         default:
           if (session_begin > 0)
           {
@@ -393,7 +395,7 @@ int8_t ymodem_Receive()
             Send_Byte(CA);
             Send_Byte(CA);
 						fr = f_close( &Tfile ) ;
-            return 0;
+            return ;
           }
 //          Send_Byte(CRC16);
           break;
@@ -413,7 +415,7 @@ int8_t ymodem_Receive()
   }
 
 	rx_fifo_running = 0 ;
-  return (int16_t)size ;
+  return ;
 }
 
 #endif
