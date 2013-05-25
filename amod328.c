@@ -655,7 +655,9 @@ int main (void)
 			break ;
 		}
 	}
-	
+
+	EIMSK &= ~0b00000001; // disable interrupt on rising edge on PD2(INT0)
+	 
 	OCR2A = F_CPU / 32 / 4000 - 1;
 	TCCR2A = 0b00000010;
 	TCCR2B = 0b00000011;
