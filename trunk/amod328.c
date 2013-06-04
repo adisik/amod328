@@ -33,6 +33,7 @@ void delay_us (WORD);	/* Defined in asmfunc.S */
 uint8_t  pollBoot( void ) ;
 void tx_single_byte( uint8_t byte ) ;
 volatile uint8_t Serial_busy ;
+uint8_t XferMode = 0 ;
 
 /*---------------------------------------------------------*/
 /* Work Area                                               */
@@ -657,7 +658,9 @@ int main (void)
 	}
 
 	EIMSK &= ~0b00000001; // disable interrupt on rising edge on PD2(INT0)
-	 
+	XferMode = 1 ;				// Now in serial transfer mode
+	UCSR0B |= ( 1 << TXEN0) ;	// Enable TX
+
 	OCR2A = F_CPU / 32 / 4000 - 1;
 	TCCR2A = 0b00000010;
 	TCCR2B = 0b00000011;
@@ -668,7 +671,6 @@ int main (void)
 	tx_single_byte( '>' ) ;
 
 void ymodem_Receive ( void ) ;
-//void testwrite( void ) ;
 void ymount( void ) ;
 
 	ymount() ;
@@ -767,7 +769,13 @@ ISR(USART_TX_vect)
 {
 	DDRD &= ~0x02 ;			// Configure pin as input
 	PORTD &= ~0x02 ;		// low, so no pullup
-	UCSR0B &= ~( ( 1 << TXCIE0 ) | ( 1 << TXEN0) ) ;	// Disable interrupt, and TX
+	UCSR0B &= ~( 1 << TXCIE0 ) ;	// Disable interrupt
+	
+	if ( XferMode == 0 )
+	{
+		UCSR0B &= ~( 1 << TXEN0 ) ;	// Disable TX
+	}
+
 	Serial_busy = 0 ;
 }
 
