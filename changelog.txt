@@ -11,6 +11,13 @@ description here
 
 ******************************************
 CHANGELOG: 26-05-2013   MPB
+Improve bootloader - RESET as well as PowerOn
+Fix watchdog reset on force bootloader
+Keep serial active in serial SD update mode
+Include date-time in uploaded files
+
+******************************************
+CHANGELOG: 26-05-2013   MPB
 Add fffconf.h to repository
 
 ******************************************

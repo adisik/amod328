@@ -404,7 +404,7 @@ int main(void) {
 	DDRD &= ~0x01 ;		// RX pin as input
 	PORTD |= 0x01 ;		// With a pullup
 
-  if ((ch & _BV(PORF)))
+  if (ch & (_BV(PORF) | (_BV(EXTRF)) ) )
 	{
 		TCNT1 = 65535-5859 ;		
   	TCCR1B = _BV(CS12) | _BV(CS10); // div 1024
@@ -435,7 +435,7 @@ int main(void) {
   // Set up watchdog to trigger after 500ms
 
 
-//  watchdogConfig(WATCHDOG_1S);
+  watchdogConfig(WATCHDOG_1S);
 
   /* Set LED pin as output */
   LED_DDR |= _BV(LED);
@@ -486,7 +486,7 @@ int main(void) {
     }
     else if(ch == STK_SET_DEVICE_EXT)
 		{
-      // SET DEVICE EXT is ignored
+     // SET DEVICE EXT is ignored
       getNch(5);
     }
     else if(ch == STK_LOAD_ADDRESS)
@@ -721,7 +721,7 @@ uint8_t getch(void) {
 		watchdogReset()
     
 		;
-  if (!(UART_SRA & _BV(FE0))) {
+//  if (!(UART_SRA & _BV(FE0))) {
       /*
        * A Framing Error indicates (probably) that something is talking
        * to us at the wrong bit rate.  Assume that this is because it
@@ -730,9 +730,9 @@ uint8_t getch(void) {
        * the application "soon", if it keeps happening.  (Note that we
        * don't care that an invalid char is returned...)
        */
-    watchdogReset();
-  }
-  
+//    watchdogReset();
+//  }
+
   ch = UART_UDR;
 #endif
 
@@ -775,7 +775,7 @@ void verifySpace()
 {
   if ( getch() != CRC_EOP) {
     
-//		watchdogConfig(WATCHDOG_16MS);    // shorten WD timeout
+		watchdogConfig(WATCHDOG_16MS);    // shorten WD timeout
     
 		while (1)			      // and busy-loop so that WD causes
       ;				      //  a reset and app start.

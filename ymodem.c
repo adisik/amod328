@@ -99,6 +99,8 @@ ISR(TIMER2_COMPA_vect)
 #define PACKET_TIMEOUT          (25)		// Units of 2mS 
 #define MAX_ERRORS              (5)
 
+DWORD FileTime ;
+
 int8_t Ymodem_Receive (uint8_t *p ) ;
 
 uint8_t file_name[FILE_NAME_LENGTH];
@@ -314,6 +316,7 @@ void ymodem_Receive()
 										{
 											size = 0 ;
 										  file_name[0] = 0 ;
+											FileTime = 0 ;
 											
                     	for (i = 0, file_ptr = packet_data + PACKET_HEADER; (*file_ptr != 0) && (i < FILE_NAME_LENGTH);)
                     	{
@@ -325,6 +328,13 @@ void ymodem_Receive()
 												size *= 10 ;
 												size += *file_ptr++ - '0' ;
                     	}
+											DWORD ftime = 0 ;
+                    	for (i = 0, file_ptr += 4; i < 4 ; i += 1, file_ptr -= 1 )
+											{
+												ftime <<= 8 ;
+												ftime |= *file_ptr ;
+											}
+											FileTime = ftime ;
 											f_unlink ( Tempfile ) ;					/* Delete any existing temp file */
 											fr = f_open( &Tfile, Tempfile, FA_WRITE | FA_CREATE_ALWAYS ) ;
 

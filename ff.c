@@ -528,10 +528,11 @@ const BYTE ExCvt[] = _EXCVT;	/* Upper conversion table for extended chars */
    Module Private Functions
 
 ---------------------------------------------------------------------------*/
+extern DWORD FileTime ;
 
 DWORD get_fattime (void)
 {
-	return 0 ;
+	return FileTime ;
 //	RTC rtc;
 
 
