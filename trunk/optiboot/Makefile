@@ -149,6 +149,14 @@ atmega328: LDSECTIONS  = -Wl,--section-start=.text=0x7e00 -Wl,--section-start=.v
 atmega328: $(PROGRAM)_atmega328.hex
 atmega328: $(PROGRAM)_atmega328.lst
 
+#atmega328: TARGET = atmega328
+#atmega328: MCU_TARGET = atmega328p
+#atmega328: CFLAGS += '-DLED_START_FLASHES=0' '-DBAUD_RATE=38400'
+#atmega328: AVR_FREQ = 16000000L
+#atmega328: LDSECTIONS  = -Wl,--section-start=.text=0x7e00 -Wl,--section-start=.version=0x7ffe
+#atmega328: $(PROGRAM)_atmega328_16.hex
+#atmega328: $(PROGRAM)_atmega328_16.lst
+
 
 
 
@@ -247,14 +255,6 @@ diecimila_isp: LFUSE = FF
 # 512 byte boot
 diecimila_isp: EFUSE = 04
 diecimila_isp: isp
-
-#atmega328: TARGET = atmega328
-#atmega328: MCU_TARGET = atmega328p
-#atmega328: CFLAGS += '-DLED_START_FLASHES=3' '-DBAUD_RATE=38400'
-#atmega328: AVR_FREQ ?= 16000000L
-#atmega328: LDSECTIONS  = -Wl,--section-start=.text=0x7e00 -Wl,--section-start=.version=0x7ffe
-#atmega328: $(PROGRAM)_atmega328.hex
-#atmega328: $(PROGRAM)_atmega328.lst
 
 atmega328_isp: atmega328
 atmega328_isp: TARGET = atmega328

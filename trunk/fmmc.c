@@ -11,9 +11,13 @@
 #define	CS_HIGH()	PORTB |= _BV(2)			/* CS=high */
 //#define SOCKINS		(!(PINB & 0x10))	/* Card detected.   yes:true, no:false, default:true */
 //#define SOCKWP		(PINB & 0x20)		/* Write protected. yes:true, no:false, default:false */
+//#if F_CPU == 12000000L
 #define	FCLK_SLOW()	SPCR = 0x52		/* Set slow clock (F_CPU / 64) */
 #define	FCLK_FAST()	SPCR = 0x50		/* Set fast clock (F_CPU / 2) */
-
+//#else
+//#define	FCLK_SLOW()	SPCR = 0x53		/* Set slow clock (F_CPU / 64) */
+//#define	FCLK_FAST()	SPCR = 0x51		/* Set fast clock (F_CPU / 2) */
+//#endif
 
 /*--------------------------------------------------------------------------
 
@@ -51,7 +55,7 @@ static volatile
 BYTE Timer1, Timer2;	/* 100Hz decrement timer */
 
 //static
-extern BYTE CardType;			/* Card type flags */
+BYTE CardType;			/* Card type flags */
 
 
 /*-----------------------------------------------------------------------*/
@@ -134,13 +138,24 @@ void rcvr_spi_multi (
 	UINT cnt	/* Size of data block */
 )
 {
+	BYTE x ;
 	do {
-		SPDR = 0xFF; loop_until_bit_is_set(SPSR,SPIF); *p++ = SPDR;
-		SPDR = 0xFF; loop_until_bit_is_set(SPSR,SPIF); *p++ = SPDR;
-	} while (cnt -= 2);
+		SPDR = 0xFF; loop_until_bit_is_set(SPSR,SPIF) ;
+		x = SPDR ;
+		SPDR = 0xFF ;
+		*p++ = x ;
+		loop_until_bit_is_set(SPSR,SPIF) ;
+		x = SPDR ;
+		SPDR = 0xFF ;
+		*p++ = x ;
+		loop_until_bit_is_set(SPSR,SPIF) ;
+		x = SPDR ;
+		SPDR = 0xFF ;
+		*p++ = x ;
+		loop_until_bit_is_set(SPSR,SPIF) ;
+		*p++ = SPDR ;
+	} while (cnt -= 4);
 }
-
-
 
 /*-----------------------------------------------------------------------*/
 /* Wait for card ready                                                   */
@@ -275,8 +290,10 @@ BYTE send_cmd (		/* Returns R1 resp (bit7==1:Send failed) */
 
 	/* Select the card and wait for ready */
 	deselect();
-	if (!select()) return 0xFF;
-
+	if (!select())
+	{
+		 return 0xFF;
+	}
 	/* Send command packet */
 	xchg_spi(0x40 | cmd);				/* Start + Command index */
 	xchg_spi((BYTE)(arg >> 24));		/* Argument[31..24] */
@@ -316,8 +333,13 @@ DSTATUS fdisk_initialize (
 	BYTE pdrv		/* Physical drive nmuber (0) */
 )
 {
-	return ( Stat = 0 ) ;
+//	return ( Stat = 0 ) ;
 	
+//#if F_CPU == 12000000L
+//	SPSR = _BV(0);
+//#else
+//	SPSR = 0 ;
+//#endif
 	BYTE n, cmd, ty, ocr[4];
 
 //	tx_single_byte( 'a' ) ;
@@ -414,9 +436,17 @@ DRESULT fdisk_read (
 	if (!(CardType & CT_BLOCK)) sector *= 512;	/* Convert to byte address if needed */
 
 	if (count == 1) {	/* Single block read */
-		if ((send_cmd(CMD17, sector) == 0)	/* READ_SINGLE_BLOCK */
-			&& rcvr_datablock(buff, 512))
-			count = 0;
+//		if ((send_cmd(CMD17, sector) == 0)	/* READ_SINGLE_BLOCK */
+//			&& rcvr_datablock(buff, 512))
+			
+		if (send_cmd(CMD17, sector) == 0)	/* READ_SINGLE_BLOCK */
+		{
+			if ( rcvr_datablock(buff, 512))
+			{
+				count = 0;
+			}
+		}	
+	
 	}
 	else {				/* Multiple block read */
 		if (send_cmd(CMD18, sector) == 0) {	/* READ_MULTIPLE_BLOCK */
