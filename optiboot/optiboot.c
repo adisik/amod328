@@ -406,13 +406,22 @@ int main(void) {
 
   if (ch & (_BV(PORF) | (_BV(EXTRF)) ) )
 	{
-		TCNT1 = 65535-5859 ;		
+#if F_CPU == 12000000L
+		TCNT1 = 65535-5859 ;
+#else
+ #if F_CPU == 16000000L
+		TCNT1 = 65535-7813 ;
+ #else
+		TCNT1 = 65535-32767 ;
+ #endif
+#endif
+		
   	TCCR1B = _BV(CS12) | _BV(CS10); // div 1024
     TIFR1 = _BV(TOV1);
     while(!(TIFR1 & _BV(TOV1)))
 			;
   	TCCR1B = 0 ; // Stop timer
-		if ( PIND & 1 )
+		if ( PIND & 1 )                                                      
 		{
 			appStart() ;	// Power on, go to voice application
 										// if loaded
@@ -429,7 +438,16 @@ int main(void) {
   UART_SRB = _BV(RXEN0) | _BV(TXEN0);
   UART_SRC = _BV(UCSZ00) | _BV(UCSZ01);
 //  UART_SRL = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
+#if F_CPU == 12000000L
   UART_SRL = 37 ;
+#else
+#if F_CPU == 16000000L
+  UART_SRL = 51 ;
+#else
+#ERROR Baud rate not available
+#endif
+#endif
+
 #endif
 
   // Set up watchdog to trigger after 500ms
@@ -830,7 +848,7 @@ void appStart()
 	register void (*p)() ;
 	p = 0 ;
 
-	if ( *(uint8_t*)p != 0xFF )
+	if ( pgm_read_byte( (uint16_t)p ) != 0xFF )
 	{
 		(*p)() ;
 	}

@@ -323,9 +323,12 @@ int ff_del_syncobj (_SYNC_t sobj);				/* Delete a sync object */
 
 #if _WORD_ACCESS == 1	/* Enable word access to the FAT structure */
 #define	LD_WORD(ptr)		(WORD)(*(WORD*)(BYTE*)(ptr))
+//static WORD LD_WORD(ptr) { WORD *p = (WORD*)(ptr); return *p  }
 #define	LD_DWORD(ptr)		(DWORD)(*(DWORD*)(BYTE*)(ptr))
 #define	ST_WORD(ptr,val)	*(WORD*)(BYTE*)(ptr)=(WORD)(val)
+//#define	ST_WORD(ptr,val)	{ WORD *p = (WORD*)(ptr); *p=(WORD)(val);}
 #define	ST_DWORD(ptr,val)	*(DWORD*)(BYTE*)(ptr)=(DWORD)(val)
+//#define	ST_DWORD(ptr,val)	{ DWORD *p = (DWORD*)(ptr); *p=(DWORD)(val);}
 #else					/* Use byte-by-byte access to the FAT structure */
 #define	LD_WORD(ptr)		(WORD)(((WORD)*((BYTE*)(ptr)+1)<<8)|(WORD)*(BYTE*)(ptr))
 #define	LD_DWORD(ptr)		(DWORD)(((DWORD)*((BYTE*)(ptr)+3)<<24)|((DWORD)*((BYTE*)(ptr)+2)<<16)|((WORD)*((BYTE*)(ptr)+1)<<8)|*(BYTE*)(ptr))

@@ -72,7 +72,6 @@ BYTE send_cmd (
 )
 {
 	BYTE n, res;
-	volatile static unsigned char res2;
 
 
 	if (cmd & 0x80) {	/* ACMD<n> is the command sequense of CMD55-CMD<n> */
@@ -102,7 +101,6 @@ BYTE send_cmd (
 	n = 10;								/* Wait for a valid response in timeout of 10 attempts */
 	do {
 		res = yrcv_spi();
-		res2 = res;
 	} while ((res & 0x80) && --n);
 
 	return res;			/* Return with the response value */
@@ -132,8 +130,11 @@ DSTATUS disk_initialize (void)
 
 //	SPCR = 0b01010000;
 	SPCR = 0b01010000;
+#if F_CPU == 12000000L
 	SPSR = _BV(0);
-
+#else
+	SPSR = 0 ;
+#endif
 
 
 	for (t = 10; t; t--) yrcv_spi();	/* Dummy clocks */
@@ -209,45 +210,45 @@ DRESULT disk_readp (
 	return res;
 }
 
-DRESULT disk_read (
-        BYTE drv,                       /* Physical drive number (0) */
-        BYTE *buff,                     /* Pointer to the data buffer to store read data */
-        DWORD sector,           /* Start sector number (LBA) */
-        BYTE count                      /* Sector count (1..255) */
-//	void *dest,		/* Pointer to the destination object to put data */
-//	DWORD lba,		/* Start sector number (LBA) */
-//	WORD ofs,		/* Byte offset in the sector (0..511) */
-//	WORD cnt		/* Byte count (1..512), b15:destination flag */
-)
-{
-	DRESULT res;
-	volatile static BYTE rc;
-	WORD t;
+//DRESULT disk_read (
+//        BYTE drv,                       /* Physical drive number (0) */
+//        BYTE *buff,                     /* Pointer to the data buffer to store read data */
+//        DWORD sector,           /* Start sector number (LBA) */
+//        BYTE count                      /* Sector count (1..255) */
+////	void *dest,		/* Pointer to the destination object to put data */
+////	DWORD lba,		/* Start sector number (LBA) */
+////	WORD ofs,		/* Byte offset in the sector (0..511) */
+////	WORD cnt		/* Byte count (1..512), b15:destination flag */
+//)
+//{
+//	DRESULT res;
+//	volatile static BYTE rc;
+//	WORD t;
 
 
-	if (!(CardType & CT_BLOCK)) sector *= 512;		/* Convert LBA to BA if needed */
+//	if (!(CardType & CT_BLOCK)) sector *= 512;		/* Convert LBA to BA if needed */
 
-	res = RES_ERROR;
-	if (send_cmd(CMD17, sector) == 0) {		/* READ_SINGLE_BLOCK */
+//	res = RES_ERROR;
+//	if (send_cmd(CMD17, sector) == 0) {		/* READ_SINGLE_BLOCK */
 
-		t = 30000;
-		do {							/* Wait for data packet in timeout of 100ms */
-			rc = yrcv_spi();
-		} while (rc == 0xFF && --t);
+//		t = 30000;
+//		do {							/* Wait for data packet in timeout of 100ms */
+//			rc = yrcv_spi();
+//		} while (rc == 0xFF && --t);
 
-		if (rc == 0xFE)
-		{
-			for ( t = 0 ; t < 512 ; t += 1 )
-			{
-				rc = yrcv_spi();
-				*buff++ = rc ;
-			}
-			res = RES_OK;
-		}
-	}
+//		if (rc == 0xFE)
+//		{
+//			for ( t = 0 ; t < 512 ; t += 1 )
+//			{
+//				rc = yrcv_spi();
+//				*buff++ = rc ;
+//			}
+//			res = RES_OK;
+//		}
+//	}
 
-	release_spi();
+//	release_spi();
 
-	return res;
-}
+//	return res;
+//}
 
